@@ -3,12 +3,12 @@ import { Octokit } from "@octokit/rest";
 const octokit = new Octokit({
   auth: process.env.GITHUB_TOKEN,
 });
+
 export const searchGithubPrs = async (query: string) => {
   const org = process.env.OWNER;
   const repo = process.env.REPO;
 
-  const octokit = new Octokit();
-  const q = `${query} repo:${org}/${repo} type:pr`;
+  const q = `${query} repo:${org}/${repo} type:pr is:merged`;
 
   const res = await octokit.request("GET /search/issues", {
     q,

@@ -3,6 +3,7 @@ import { searchLinearIssues } from "../collectors/linear";
 import { searchGithubPrs } from "../collectors/github";
 import { createNotionRCAPage } from "../collectors/notion";
 import { generateRCA } from "../rca/engine";
+import { expandQuery } from "../collectors/queryEnhancer/expand";
 
 export const slackApp = new App({
   signingSecret: process.env.SLACK_SIGNING_SECRET,
@@ -16,7 +17,23 @@ slackApp.event("app_mention", async ({ event, say }) => {
   const query = text.replace(/<@[^>]+>/g, "").trim();
   await say("RCA Bot is here!👋 ");
 
-  const issues = await searchLinearIssues(query);
+  const variations = await expandQuery(query);
+
+  console.log("debug", variations);
+
+  const [issueResults, prResults] = await Promise.all([
+    Promise.all(variations.map((v) => searchLinearIssues(v))),
+    Promise.all(variations.map((v) => searchGithubPrs(v))),
+  ]);
+
+  const issues = Array.from(
+    new Map(issueResults.flat().map((issue) => [issue.id, issue])).values()
+  );
+
+  const prs = Array.from(
+    new Map(prResults.flat().map((pr) => [pr.number, pr])).values()
+  );
+
   if (!issues.length) {
     await say("❌ No related Linear tickets found.");
   } else {
@@ -27,7 +44,6 @@ slackApp.event("app_mention", async ({ event, say }) => {
     await say(`📝 **Related Linear Issues:**\n${summary}`);
   }
 
-  const prs = await searchGithubPrs(query);
   if (!prs.length) {
     await say("❌ No PRs found for this query.");
   } else {

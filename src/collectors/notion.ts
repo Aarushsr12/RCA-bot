@@ -33,17 +33,21 @@ export async function createNotionRCAPage(
             },
           ],
         },
-        Confidence: {
-          number: rcaResult.confidence,
-        },
-        Status: {
-          select: {
-            name:
-              rcaResult.confidence >= 80 ? "High Confidence" : "Review Needed",
-          },
-        },
       },
       children: [
+        {
+          object: "block",
+          type: "heading_2",
+          heading_2: {
+            rich_text: [
+              {
+                text: {
+                  content: `Confidence: ${rcaResult.confidence}%`,
+                },
+              },
+            ],
+          },
+        },
         {
           object: "block",
           type: "heading_2",
