@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment variables
+.env
+
+# Code index (generated file)
+code_index.json
+
+# OS files
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+#SUMMARY
+IMPLEMENTATION_SUMMARY.md
+
+#Embeddings
+code_index.json
