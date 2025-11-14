@@ -10,6 +10,7 @@ const openai = new OpenAI({
 
 interface RCAResult {
   summary: string;
+  thinking: string;
   root_cause: string;
   files_mentioned: string[];
   suggested_fix: string;
@@ -43,14 +44,16 @@ ${match.content}
 
 **INSTRUCTIONS:**
 Based on the issue and the code samples above:
-1. Identify the most likely root cause of the problem
-2. Specify which file(s) and code sections are involved
-3. Provide a suggested fix with a code patch or detailed explanation
-4. Assess your confidence level (0-100)
+1. First, explain your thinking process and analysis approach
+2. Identify the most likely root cause of the problem
+3. Specify which file(s) and code sections are involved
+4. Provide a suggested fix with a code patch or detailed explanation
+5. Assess your confidence level (0-100)
 
 Return your analysis as valid JSON only, with this exact structure:
 {
   "summary": "Brief one-sentence summary of the issue",
+  "thinking": "Your step-by-step analysis and reasoning process (2-3 sentences)",
   "root_cause": "Detailed explanation of what is causing the issue",
   "files_mentioned": ["array", "of", "file", "paths"],
   "suggested_fix": "Code diff or detailed code fix explanation",
@@ -72,6 +75,8 @@ async function generateRCA(issueText: string): Promise<RCAResult> {
     console.warn("No relevant code found for the issue");
     return {
       summary: "No relevant code found",
+      thinking:
+        "Unable to analyze - no relevant code sections found in the index",
       root_cause: "Unable to locate relevant code sections for this issue",
       files_mentioned: [],
       suggested_fix:
@@ -117,6 +122,7 @@ async function generateRCA(issueText: string): Promise<RCAResult> {
       // Validate structure
       if (
         !rcaResult.summary ||
+        !rcaResult.thinking ||
         !rcaResult.root_cause ||
         !rcaResult.files_mentioned ||
         !rcaResult.suggested_fix
@@ -132,6 +138,7 @@ async function generateRCA(issueText: string): Promise<RCAResult> {
       // Return fallback structure
       return {
         summary: "RCA generation completed (parsing failed)",
+        thinking: "Unable to parse AI response properly",
         root_cause: content,
         files_mentioned: codeMatches.map((m) => m.file),
         suggested_fix: "See root_cause field for details",

@@ -12,7 +12,24 @@ export const slackApp = new App({
   appToken: process.env.SLACK_APP_TOKEN,
 });
 
+// Track processed events to prevent duplicates
+const processedEvents = new Set<string>();
+
 slackApp.event("app_mention", async ({ event, say }) => {
+  // Deduplicate events
+  const eventId = `${event.event_ts}-${event.channel}`;
+  if (processedEvents.has(eventId)) {
+    console.log("⚠️ Skipping duplicate event:", eventId);
+    return;
+  }
+  processedEvents.add(eventId);
+
+  // Clean up old events (keep last 100)
+  if (processedEvents.size > 100) {
+    const oldest = Array.from(processedEvents).slice(0, 50);
+    oldest.forEach((id) => processedEvents.delete(id));
+  }
+
   const text = event.text ?? "";
   const query = text.replace(/<@[^>]+>/g, "").trim();
   await say("RCA Bot is here!👋 ");
@@ -41,35 +58,94 @@ slackApp.event("app_mention", async ({ event, say }) => {
       .map((i) => `• *${i.identifier}* — ${i.title}`)
       .join("\n");
 
-    await say(`📝 **Related Linear Issues:**\n${summary}`);
+    await say(`📝 Related Linear Issues:\n${summary}`);
   }
 
   if (!prs.length) {
     await say("❌ No PRs found for this query.");
   } else {
     const prSummary = prs
-      .map((pr) => `• <${pr.pr_link}|PR #${pr.number}> — ${pr.title}`)
+      .map((pr) => `• <${pr.pr_link}|PR #${pr.number}> - ${pr.title}`)
       .join("\n");
 
-    await say(`📦 **Relevant GitHub PRs:**\n${prSummary}`);
+    await say(`📦 Relevant GitHub PRs:\n${prSummary}`);
   }
 
   const rcaResult = await generateRCA(query);
   if (!rcaResult) {
     await say("❌ No RCA Available");
   } else {
-    await say(
-      `
-      RCA:
-      Summary: ${rcaResult.summary},
-      \nRootCause: ${rcaResult.root_cause},
-      \nFiles Mentioned: ${rcaResult.files_mentioned.join(", ")}
-      \nSuggested Fix: ${rcaResult.suggested_fix}
-      \nConfidence: ${rcaResult.confidence + "%"}
-      `
-    );
+    await say({
+      text: `RCA: ${rcaResult.summary}`, // Fallback text for notifications
+      blocks: [
+        {
+          type: "header",
+          text: {
+            type: "plain_text",
+            text: "🔍 Root Cause Analysis",
+            emoji: true,
+          },
+        },
+        {
+          type: "section",
+          fields: [
+            {
+              type: "mrkdwn",
+              text: `*Confidence:*\n${rcaResult.confidence}%`,
+            },
+            {
+              type: "mrkdwn",
+              text: `*Files Affected:*\n${
+                rcaResult.files_mentioned.length || 0
+              }`,
+            },
+          ],
+        },
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `*📋 Summary*\n${rcaResult.summary}`,
+          },
+        },
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `* 🧠 Analysis Process*\n_${rcaResult.thinking}_`,
+          },
+        },
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `* 🔎 Root Cause*\n${rcaResult.root_cause}`,
+          },
+        },
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `*📁 Files Mentioned*\n${
+              rcaResult.files_mentioned.length > 0
+                ? rcaResult.files_mentioned.map((f) => `• \`${f}\``).join("\n")
+                : "_None_"
+            }`,
+          },
+        },
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `*🔧 Suggested Fix*\n\`\`\`\n${rcaResult.suggested_fix}\n\`\`\``,
+          },
+        },
+        {
+          type: "divider",
+        },
+      ],
+    });
 
-    // Send RCA result to Notion
     const notionPageUrl = await createNotionRCAPage(query, rcaResult);
     if (notionPageUrl) {
       await say(`📄 RCA saved to Notion: ${notionPageUrl}`);
