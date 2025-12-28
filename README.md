@@ -51,11 +51,6 @@ Workflow:
         - Suggest fixes
 2. **LLM Call** 🤖
     
-    - 
-    - 
-    - 
-    - 
-    
 3. **Response Processing** ✅
     
     - LLM reads the issue + relevant code chunks
